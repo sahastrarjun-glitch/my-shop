@@ -11,16 +11,13 @@ jobs:
       - name: Extract zip and prepare workspace
         run: |
           unzip -q -o *.zip
-          # Gradle wrapper ko dhund kar root me set karna
-          GRADLEW_PATH=$(find . -name "gradlew" | head -n 1)
-          if [ -n "$GRADLEW_PATH" ]; then
-            PROJECT_DIR=$(dirname "$GRADLEW_PATH")
-            echo "Moving files from $PROJECT_DIR to root..."
-            cp -r $PROJECT_DIR/* . 2>/dev/null || true
-            chmod +x gradlew
-          else
-            echo "gradlew not found!"
-            exit 1
+          # Agar zip kisi folder ke andar khuli ho to files bahar lana
+          BUILD_FILE=$(find . -maxdepth 3 -name "settings.gradle.kts" -o -name "settings.gradle" | head -n 1)
+          if [ -n "$BUILD_FILE" ]; then
+            DIR=$(dirname "$BUILD_FILE")
+            if [ "$DIR" != "." ]; then
+              cp -r $DIR/* . 2>/dev/null || true
+            fi
           fi
 
       - name: Set up JDK 17
@@ -29,8 +26,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+      - name: Generate Gradle Wrapper if missing
+        run: |
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          chmod +x gradlew
 
       - name: Build APK
         run: ./gradlew assembleDebug --no-daemon
